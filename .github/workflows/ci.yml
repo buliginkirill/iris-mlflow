@@ -13,42 +13,43 @@ jobs:
           POSTGRES_USER: mlflow
           POSTGRES_PASSWORD: mlflow
           POSTGRES_DB: mlflow
-        ports: ['5432:5432']
-      minio:
-        image: minio/minio:latest
-        env:
-          MINIO_ROOT_USER: mlflow
-          MINIO_ROOT_PASSWORD: mlflow123
-        ports: ['9000:9000','9001:9001']
-        options: >-
-          --health-cmd="curl -f http://localhost:9000/minio/health/live"
-          --health-interval=10s --health-retries=5
-          
+        ports: [ '5432:5432' ]
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
 
-      # ⬇︎ ставим зависимости + psycopg2-binary
       - run: pip install -r src/requirements.txt psycopg2-binary
 
-      # ⬇︎ запускаем MLflow-сервер в фоне
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio \
+            -e MINIO_ROOT_USER=mlflow \
+            -e MINIO_ROOT_PASSWORD=mlflow123 \
+            -p 9000:9000 -p 9001:9001 \
+            minio/minio:latest server /data --console-address ":9001"
+          # ждём пока ответит health-endpoint
+          for i in {1..10}; do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 3
+          done
+
+      - name: Create bucket
+        run: |
+          curl -s https://dl.min.io/client/mc/release/linux-amd64/mc -o mc
+          chmod +x mc
+          ./mc alias set local http://localhost:9000 mlflow mlflow123
+          ./mc mb --ignore-existing local/mlflow
+
       - name: Start MLflow server
         run: |
           mlflow server \
             --backend-store-uri postgresql://mlflow:mlflow@localhost:5432/mlflow \
             --default-artifact-root s3://mlflow \
             --host 0.0.0.0 --port 5000 &
-          sleep 20
-
-      # ⬇︎ скачиваем официальный CLI mc и создаём bucket
-      - name: Create bucket in MinIO
-        run: |
-          curl -s https://dl.min.io/client/mc/release/linux-amd64/mc -o mc
-          chmod +x mc
-          ./mc alias set local http://localhost:9000 mlflow mlflow123
-          ./mc mb --ignore-existing local/mlflow
+          sleep 15
 
       - name: Train & log
         env:
