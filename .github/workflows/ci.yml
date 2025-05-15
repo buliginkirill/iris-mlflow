@@ -1,5 +1,3 @@
-mkdir -p .github/workflows
-cat > .github/workflows/ci.yml <<'EOF'
 name: Iris-MLflow-CI
 
 on: [push, pull_request]
@@ -22,7 +20,9 @@ jobs:
           MINIO_ROOT_USER: mlflow
           MINIO_ROOT_PASSWORD: mlflow123
         ports: ['9000:9000','9001:9001']
-        options: --health-cmd="curl -f http://localhost:9000/minio/health/live" --health-interval=10s --health-retries=5
+        options: >-
+          --health-cmd="curl -f http://localhost:9000/minio/health/live"
+          --health-interval=10s --health-retries=5
         command: server /data --console-address ":9001"
 
     steps:
@@ -31,21 +31,25 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
 
-      - run: pip install -r src/requirements.txt
+      # ⬇︎ ставим зависимости + psycopg2-binary
+      - run: pip install -r src/requirements.txt psycopg2-binary
 
+      # ⬇︎ запускаем MLflow-сервер в фоне
       - name: Start MLflow server
         run: |
           mlflow server \
             --backend-store-uri postgresql://mlflow:mlflow@localhost:5432/mlflow \
             --default-artifact-root s3://mlflow \
             --host 0.0.0.0 --port 5000 &
-          sleep 20      # ждём, пока поднимется
+          sleep 20
 
-      - name: Create bucket
+      # ⬇︎ скачиваем официальный CLI mc и создаём bucket
+      - name: Create bucket in MinIO
         run: |
-          pip install minio-mc
-          mc alias set local http://localhost:9000 mlflow mlflow123
-          mc mb --ignore-existing local/mlflow
+          curl -s https://dl.min.io/client/mc/release/linux-amd64/mc -o mc
+          chmod +x mc
+          ./mc alias set local http://localhost:9000 mlflow mlflow123
+          ./mc mb --ignore-existing local/mlflow
 
       - name: Train & log
         env:
@@ -57,5 +61,3 @@ jobs:
 
       - name: Run tests
         run: pytest -q
-EOF
-
