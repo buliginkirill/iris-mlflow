@@ -38,7 +38,7 @@
 
 ```bash
 # 1. клонируем
-git clone https://github.com/<you>/iris-mlflow.git
+git clone https://github.com/buliginkirill/iris-mlflow.git
 cd iris-mlflow
 
 # 2. поднимаем стек
