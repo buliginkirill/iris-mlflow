@@ -3,3 +3,4 @@ scikit-learn>=1.5
 pandas
 boto3
 matplotlib
+pytest>=7.0 

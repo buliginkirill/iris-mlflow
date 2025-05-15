@@ -31,7 +31,6 @@ jobs:
           -p 9000:9000 -p 9001:9001 \
           minio/minio:latest server /data --console-address ":9001"
 
-        # ждём live-endpoint, иначе следующие шаги не увидят S3
         for i in {1..15}; do
           curl -sf http://localhost:9000/minio/health/live && break
           echo "waiting MinIO…"; sleep 3
