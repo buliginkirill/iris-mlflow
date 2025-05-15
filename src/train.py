@@ -16,13 +16,11 @@ def main(n_estimators: int, max_depth: int):
             n_estimators=n_estimators, max_depth=max_depth, random_state=42)
         clf.fit(X_tr, y_tr)
 
-        # ваши метрики для test-сета
         mlflow.log_metric("test_accuracy",
                           accuracy_score(y_te, clf.predict(X_te)))
         mlflow.log_metric("test_f1_macro",
                           f1_score(y_te, clf.predict(X_te), average="macro"))
 
-        # регистрируем именно эту модель (ONE run, ONE model)
         mlflow.register_model(f"runs:/{run.info.run_id}/model", "iris_rf")
 
 if __name__ == "__main__":
